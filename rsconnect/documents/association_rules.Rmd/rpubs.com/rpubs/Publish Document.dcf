@@ -1,0 +1,11 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/863030/0e93db90d4ad415ba850820a15168726
+bundleId: https://api.rpubs.com/api/v1/document/863030/0e93db90d4ad415ba850820a15168726
+url: http://rpubs.com/sjimon/863030/edit
+when: 1644207321.11667
+lastSyncTime: 1644207321.11667

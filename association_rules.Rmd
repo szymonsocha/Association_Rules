@@ -1,0 +1,170 @@
+---
+title: "Association rules</br>Transactions data analysis"
+author: "Szymon Socha"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    theme: journal
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Introduction**
+<div style="text-align: justify">
+What are the Association Rules? Association rules is a machine learning method used for finding relatations in the data. With a help of association rule learning one can identify strong **rules** in database using measures like **support**, **confidence** and **lift**.^[https://en.wikipedia.org/wiki/Association_rule_learning] One of its uses are recommendation systems, like the one implemented by Netflix. Netflix creates personalised list of recommended movies for every user. Based upon user watch history, his likes and dislikes they recommend movies he may like.  can be used in recommendation systems (80% of Netflix views are from the service’s recommendation).^[https://www.kaggle.com/mathchi/association-rules-on-business-problem/notebook]</br>
+In the following paper, with the help of association rules I will try to discover the relationships between shopping baskets and indicate which products imply the purchase of other products. The data for this paper was downloaded from Kaggle [website](https://www.kaggle.com/mathchi/association-rules-on-business-problem/data). The dataset contains information on the 315 transactions, including different products such bagels, cheese, diapers, eggs, milk.
+</div>
+
+#### Load neccessary libraries
+```{r, message=FALSE, warning=FALSE}
+library(arules)
+library(arulesViz)
+library(arulesCBA)
+```
+
+# **Basic descriptive statistics**
+#### Read the data
+```{r, echo=FALSE}
+df <- read.transactions("retail_dataset.csv", sep = ",")
+```
+
+<div style="text-align: justify">
+Let’s take a look at some basic descriptive statistics of the dataset.
+</div>
+
+```{r}
+summary(df)
+```
+
+<div style="text-align: justify">
+One can observe that most frequent items are bread (159 occurenes), cheese (158), milk (158), meat (150) and eggs (138). Other items account for 514 records in total.</br>
+</br>
+Similarly, the frequency of items in the baskets is shown in the the relative item frequency barplot below.
+</div>
+
+```{r, echo=FALSE}
+itemFrequencyPlot(df, topN=15, type="relative", main="Item frequency") 
+```
+
+# **Apriori algorithm**
+<div style="text-align: justify">
+As I have mentioned before, association rule can identify strong rules in database using measures like support, confidence and lift. Below, one can find the formulas with the help of which these measures can be calculated.
+
+$$support(X) = \frac{count(X)}{N}$$
+Support measures how frequently an itemset or a rule occurs in the data. <i>X</i> indicates the number of transactions the itemset X appers in. <i>N</i> is the number of transactions in the
+database.
+
+$$confidence(X \rightarrow Y) = \frac{support(X,Y)}{support(X)}$$
+Confidence is the percentage in which the consequent is also satisfied upon particular antecedent. The proportion of transactions where the presence of item or itemset X results in the presence of item
+or itemset Y.
+
+$$lift(X \rightarrow Y) = \frac{confidence(X \rightarrow Y)}{support(Y)}$$
+Lift controls for the support (frequency) of consequent while calculating the conditional probability of occurrence of {Y} given {X}. the rise in probability of having {Y} on the cart with the knowledge of {X} being present over the probability of having {Y} on the cart without any knowledge about presence of {X}.</br>
+</br>
+Let's find the association rules using the apriori algorithm.
+</div>
+
+```{r}
+rules <- apriori(df) 
+```
+
+<div style="text-align: justify">
+One can observe that running apriori algorithm with default parameters results with 5 rules.</br>
+</br>
+I change parameters in order to obtain more rules. Setting the support to 0.05, confidence to 0.75 and minimal length to 2 results in obtaining 16 rules.
+</div>
+
+```{r}
+rules <- apriori(df, parameter=list(supp=0.05, conf=0.75, minlen=2)) 
+```
+
+<div style="text-align: justify">
+Below, one can observe the visualizations of found rules.
+</div>
+
+```{r,echo=FALSE}
+plot(rules, method="paracoord", control=list(reorder=TRUE))
+```
+
+```{r, echo=FALSE}
+plot(rules, method="graph")
+```
+
+<div style="text-align: justify">
+In order to get a deeper into obtained rules, one can sort the results by a specific metric (support, confidence or lift).
+</div>
+
+```{r}
+inspect(sort(rules, by = "support")[1:5], linebreak = FALSE)
+```
+
+<div style="text-align: justify">
+Rules sorted by the support show what transactions were the most common ones. One can interpret the results that set of eggs, meat and cheese occurs in 21.6% of total transactions. Respectively, meat, milk and cheese occurs in 20.3% of total transactions.
+</div>
+
+```{r}
+inspect(sort(rules, by = "confidence")[1:5], linebreak = FALSE)
+```
+
+<div style="text-align: justify">
+By sorting rules by the confidence can see which of them are the most probable. The result can be interpreted in a way that when a consumer buys set of eggs, meat and milk, with a probability of 86% they will also buy cheese. Similarly, if a customer buys diaper, meat and milk, with a probability of 85% they will also buy bread. And further, buying a set of meat and milk has a 83% probability of leading to the purchase of cheese.
+</div>
+
+```{r}
+inspect(sort(rules, by = "lift")[1:5], linebreak = FALSE)
+```
+
+<div style="text-align: justify">
+The lift metric shows with which items a product is more often bought together than separately. Value of the lift for each rule exceeds 1. It means that wine is more likely to be bought with a set of cheese, eggs and pencil than to be bought separately. Analogously for the set of diaper, eggs and pencil, with which wine was bought more often than bought separately.
+</div>
+
+```{r}
+rules_wine <- apriori(data=df, parameter=list(supp=0.05,conf = 0.75, minlen=2), appearance=list(default="lhs", rhs="Wine"), control=list(verbose=F)) 
+rules_wine_byconf <- sort(rules_wine, by="confidence", decreasing=TRUE)
+inspect((rules_wine_byconf)[1:3], linebreak = FALSE)
+```
+
+<div style="text-align: justify">
+It is also possible to explore the rules for selected products. Above you can see the three rules for buying wine sorted by confidence.
+</div>
+
+# **ECLAT algorithm**
+<div style="text-align: justify">
+Another algorithm that can be used for association is ECLAT (Equivalence Class Clustering and bottom-up Lattice Traversal). This algorithm competes with Apriori algorithm in terms of speed of computation. As no rules are created in this case and the metrics (confidence, lift) needed to interpret the alternative models are not counted, the computation time is faster. As a result, we obtain frequent sets and measure values determined for them (e.g. support).</br>
+</br>
+I will start by running the algorithm with the following parameter thresholds: support=0.25, minlen=2, maxlen=10.
+</div>
+
+```{r}
+freq.items <- eclat(df, parameter=list(supp=0.25, minlen=2, maxlen=10)) 
+```
+
+<div style="text-align: justify">
+As a result, I got 8 sets. 
+</div>
+
+```{r}
+inspect(sort(freq.items, by = "support"))
+```
+
+<div style="text-align: justify">
+The most common set turned out to be cheese and meat (32.4%), followed by cheese and milk (30.5%), cheese and eggs (29.8%), and so on.
+</div>
+
+```{r}
+freq.rules <- ruleInduction(freq.items, df, confidence=0.6)
+inspect(sort(freq.rules, by = "confidence"))
+```
+
+<div style="text-align: justify">
+Interpreting the results, the probability that along with buying eggs, the customer will also buy cheese is 68%. Similarly for the other sets.
+</div>
+
+# **Conclusion**
+<div style="text-align: justify">
+Both using Apriori algorithm and ECLAT algorithm produced results that seem to agree with reality. The results are consistent with intuition and appear to be correct. I used two algorithms in this paper: Apriori algorithm and ECLAT algorithm. Apriori algorithm is slower, but gives more useful metrics and uses less memory than the ECLAT. ECLAT is faster, but does not give as many metrics as Apriori algorithm.
+</div>
